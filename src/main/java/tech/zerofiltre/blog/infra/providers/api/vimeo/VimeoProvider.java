@@ -34,6 +34,7 @@ public class VimeoProvider {
         headers.add("Content-Type", "application/json");
         headers.add("Accept", "application/vnd.vimeo.*+json;version=3.4");
 
+        //String structuredName = courseName + "/" + chapterName + "/" + lessonName + "/" + name;
         String initBody = "{\n" +
                 "  \"upload\": {\n" +
                 "    \"approach\": \"tus\",\n" +
@@ -58,5 +59,31 @@ public class VimeoProvider {
             log.error("We couldn't init the video at vimeo", e);
             throw new VideoUploadFailedException("We couldn't init the video at vimeo: " + e.getMessage(), e);
         }
+    }
+
+    public String delete(String video_id) throws ZerofiltreException {
+
+        MultiValueMap<String, String> headers = new LinkedMultiValueMap<>();
+        headers.add("Authorization", "bearer " + infraProperties.getVimeoAccessToken());
+        headers.add("Content-Type", "application/json");
+        headers.add("Accept", "application/vnd.vimeo.*+json;version=3.4");
+
+        String deleteBody = video_id;
+
+        return retryTemplate.execute(retryContext -> {
+            String url = infraProperties.getVimeoRootURL() + "/me/videos";
+
+            HttpEntity<String> requestEntity = new HttpEntity<>(deleteBody, headers);
+            ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.DELETE, requestEntity, String.class);
+            String result = response.getBody();
+            if (result == null || result.isBlank() || result.contains("\"approach\": \"tus\"")) {
+                try {
+                    throw new ZerofiltreException("We could not delete the video at vimeo");
+                } catch (ZerofiltreException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+            return result;
+        });
     }
 }
